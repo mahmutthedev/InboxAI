@@ -1,5 +1,8 @@
 # next-template
 
+> **Warning**
+> This template is deprecated. You can now create a new Next.js project using the shadcn CLI: `npx shadcn init`.
+
 A Next.js 13 template for building apps with Radix UI and Tailwind CSS.
 
 ## Usage
