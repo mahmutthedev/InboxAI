@@ -13,7 +13,7 @@ Follow the enforced Prettier settings: 2-space indentation, double quotes, no se
 No dedicated test runner ships with this template yet. Guard regressions by running `npm run lint` and `npm run typecheck` before every PR. If you add automated tests, colocate them next to the component (`component.test.tsx`) and document the new command in `package.json` so others can reproduce results.
 
 ## Commit & Pull Request Guidelines
-Commits follow Conventional Commit style (see `feat(next-template): ...`, `fix(next-template): ...` in `git log`). Keep the scope meaningful and explain why, not just what. PRs should link issues when available, summarize behavior changes, and attach screenshots or recordings for any UI update.
+Commits follow Conventional Commit style (see `feat(inboxai): ...`, `fix(inboxai): ...` in `git log`). Keep the scope meaningful and explain why, not just what. PRs should link issues when available, summarize behavior changes, and attach screenshots or recordings for any UI update.
 
 ## Configuration & Environment Notes
 Node 18+ is recommended to match the Next.js toolchain. Update `config/` modules instead of hardcoding environment-specific values in components; surface new env requirements in `.env.example` when adding configuration.
