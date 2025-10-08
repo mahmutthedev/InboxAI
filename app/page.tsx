@@ -35,7 +35,7 @@ export default async function IndexPage() {
         : "Missing Google access token. Try signing out and connecting again."
   } else {
     try {
-      messages = await listUserMessages(session.accessToken, 1000)
+      messages = await listUserMessages(session.accessToken, 10)
       console.log(messages)
     } catch (error) {
       console.log(error)
