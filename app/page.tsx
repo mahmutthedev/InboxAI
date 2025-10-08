@@ -16,11 +16,13 @@ export default async function IndexPage() {
             Connect your Google account
           </h1>
           <p className="text-lg text-muted-foreground">
-            Use the Sign in with Google button in the header to link your Gmail inbox and see your latest messages directly on this page.
+            Use the Sign in with Google button in the header to link your Gmail
+            inbox and see your latest messages directly on this page.
           </p>
         </div>
         <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-          Once you are signed in, your most recent Gmail emails will appear here.
+          Once you are signed in, your most recent Gmail emails will appear
+          here.
         </div>
       </section>
     )
@@ -33,8 +35,10 @@ export default async function IndexPage() {
         : "Missing Google access token. Try signing out and connecting again."
   } else {
     try {
-      messages = await listUserMessages(session.accessToken, 15)
+      messages = await listUserMessages(session.accessToken, 1000)
+      console.log(messages)
     } catch (error) {
+      console.log(error)
       errorMessage =
         error instanceof Error
           ? error.message
@@ -46,10 +50,13 @@ export default async function IndexPage() {
     <section className="container flex flex-col gap-6 pb-8 pt-6 md:py-10">
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-extrabold leading-tight tracking-tighter md:text-4xl">
-          {session.user?.name ? `${session.user.name}'s Gmail inbox` : "Your Gmail inbox"}
+          {session.user?.name
+            ? `${session.user.name}'s Gmail inbox`
+            : "Your Gmail inbox"}
         </h1>
         <p className="text-lg text-muted-foreground">
-          Showing the latest messages for {session.user?.email ?? "your account"}.
+          Showing the latest messages for{" "}
+          {session.user?.email ?? "your account"}.
         </p>
       </header>
       {errorMessage ? (
@@ -75,8 +82,12 @@ export default async function IndexPage() {
                     {formattedDate}
                   </p>
                   <h2 className="text-xl font-semibold">{message.subject}</h2>
-                  <p className="text-sm text-muted-foreground">From: {message.from}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{message.snippet}</p>
+                  <p className="text-sm text-muted-foreground">
+                    From: {message.from}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {message.snippet}
+                  </p>
                 </div>
               </li>
             )

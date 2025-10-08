@@ -22,6 +22,8 @@ interface GmailMessageResponse {
 }
 
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
+const GMAIL_LIST_BATCH_LIMIT = 500
+const GMAIL_DETAIL_BATCH_SIZE = 25
 
 function extractHeader(headers: Array<{ name?: string; value?: string }>, key: string) {
   return (
@@ -30,55 +32,106 @@ function extractHeader(headers: Array<{ name?: string; value?: string }>, key: s
   )
 }
 
-export async function listUserMessages(accessToken: string, maxResults = 10): Promise<GmailMessagePreview[]> {
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
+async function fetchMessageIds(accessToken: string, limit?: number) {
+  const headers = { Authorization: `Bearer ${accessToken}` }
+  const ids: string[] = []
+
+  if (typeof limit === "number" && limit <= 0) {
+    return { headers, ids }
   }
 
-  const listResponse = await fetch(
-    `${GMAIL_API_BASE}/messages?maxResults=${maxResults}&q=`,
-    {
+  let pageToken: string | undefined
+  let remaining = typeof limit === "number" ? Math.max(limit, 0) : undefined
+
+  while (true) {
+    const batchSize =
+      typeof remaining === "number"
+        ? Math.min(GMAIL_LIST_BATCH_LIMIT, Math.max(remaining, 1))
+        : GMAIL_LIST_BATCH_LIMIT
+
+    const listUrl = new URL(`${GMAIL_API_BASE}/messages`)
+    listUrl.searchParams.set("maxResults", String(batchSize))
+    listUrl.searchParams.set("q", "")
+    if (pageToken) {
+      listUrl.searchParams.set("pageToken", pageToken)
+    }
+
+    const response = await fetch(listUrl, {
       headers,
       next: { revalidate: 0 },
-    }
-  )
+    })
 
-  if (!listResponse.ok) {
-    throw new Error("Failed to load Gmail messages")
+    if (!response.ok) {
+      throw new Error("Failed to load Gmail messages")
+    }
+
+    const json = (await response.json()) as GmailListResponse
+    const batchIds =
+      json.messages?.map((message) => message.id).filter((id): id is string => Boolean(id)) ?? []
+
+    ids.push(...batchIds)
+
+    if (typeof remaining === "number") {
+      remaining -= batchIds.length
+      if (remaining <= 0) {
+        break
+      }
+    }
+
+    pageToken = json.nextPageToken
+
+    if (!pageToken || batchIds.length === 0) {
+      break
+    }
   }
 
-  const listJson = (await listResponse.json()) as GmailListResponse
+  return { headers, ids }
+}
 
-  if (!listJson.messages?.length) {
+export async function listUserMessages(accessToken: string, limit?: number): Promise<GmailMessagePreview[]> {
+  const { headers, ids } = await fetchMessageIds(accessToken, limit)
+
+  if (!ids.length) {
     return []
   }
 
-  const previews = await Promise.all(
-    listJson.messages.map(async ({ id }) => {
-      const detailResponse = await fetch(
-        `${GMAIL_API_BASE}/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
-        {
+  const previews: GmailMessagePreview[] = []
+
+  for (let index = 0; index < ids.length; index += GMAIL_DETAIL_BATCH_SIZE) {
+    const chunk = ids.slice(index, index + GMAIL_DETAIL_BATCH_SIZE)
+
+    const chunkData = await Promise.all(
+      chunk.map(async (id) => {
+        const detailUrl = new URL(`${GMAIL_API_BASE}/messages/${id}`)
+        detailUrl.searchParams.set("format", "metadata")
+        detailUrl.searchParams.append("metadataHeaders", "Subject")
+        detailUrl.searchParams.append("metadataHeaders", "From")
+        detailUrl.searchParams.append("metadataHeaders", "Date")
+
+        const detailResponse = await fetch(detailUrl, {
           headers,
           next: { revalidate: 0 },
+        })
+
+        if (!detailResponse.ok) {
+          throw new Error("Failed to load Gmail message details")
         }
-      )
 
-      if (!detailResponse.ok) {
-        throw new Error("Failed to load Gmail message details")
-      }
+        const detailJson = (await detailResponse.json()) as GmailMessageResponse
+        const detailHeaders = detailJson.payload?.headers ?? []
 
-      const detailJson = (await detailResponse.json()) as GmailMessageResponse
-      const detailHeaders = detailJson.payload?.headers ?? []
+        return {
+          id: detailJson.id,
+          subject: extractHeader(detailHeaders, "Subject") || "(No subject)",
+          from: extractHeader(detailHeaders, "From") || "Unknown sender",
+          snippet: detailJson.snippet,
+          date: extractHeader(detailHeaders, "Date"),
+        }
+      })
+    )
 
-      return {
-        id: detailJson.id,
-        subject: extractHeader(detailHeaders, "Subject") || "(No subject)",
-        from: extractHeader(detailHeaders, "From") || "Unknown sender",
-        snippet: detailJson.snippet,
-        date: extractHeader(detailHeaders, "Date"),
-      }
-    })
-  )
+    previews.push(...chunkData)
+  }
 
   return previews
 }
